@@ -1426,10 +1426,10 @@ def runOnDataset(file_name_without_extension: str, run_index: int = 0):
         output_df = pd.DataFrame(
             [
                 {
-                    "Normal_accuracy": Normal_accuracy,
-                    "Normal_f1_score": Normal_f1_score,
-                    "Normal_precision": Normal_precision,
-                    "Normal_recall": Normal_recall,
+                    "Normal_RF_accuracy": Normal_accuracy,
+                    "Normal_RF_f1_score": Normal_f1_score,
+                    "Normal_RF_precision": Normal_precision,
+                    "Normal_RF_recall": Normal_recall,
                     "LR_accuracy": LR_accuracy,
                     "LR_f1_score": LR_f1_score,
                     "LR_precision": LR_precision,
@@ -1494,7 +1494,7 @@ def main():
 
     dataset_directory = Path(__file__).resolve().parent / "Datasets"
 
-    for dataset_path in sorted(dataset_directory.glob("*.csv")):
+    for dataset_path in sorted(dataset_directory.glob("*.csv"))[:1]:
         for run_index in range(30):
             runOnDataset(dataset_path.stem, run_index)
 
