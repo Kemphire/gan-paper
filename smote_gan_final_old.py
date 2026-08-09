@@ -1,30 +1,19 @@
 import pandas as pd
+
 from pandas import DataFrame
+
 import numpy as np
-import time
-import torch
-from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
-from tqdm.auto import tqdm
-from datetime import datetime
-from sklearn.base import BaseEstimator
-from sklearn.model_selection import train_test_split, cross_val_predict
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from sklearn.metrics import (
-    f1_score,
-    accuracy_score,
-    precision_score,
-    recall_score,
-    classification_report,
-)
-from sklearn.ensemble import RandomForestClassifier
-from imblearn.over_sampling import SMOTE, ADASYN
-from imblearn.pipeline import Pipeline
+
+from sklearn.model_selection import train_test_split
+
+
+
 
 
 def two_classes_Abalone(Abalone_df):
 
     class_category = np.repeat("empty000", Abalone_df.shape[0])
+
 
 
     for i in range(0, Abalone_df["Class_number_of_rings"].size):
@@ -38,11 +27,15 @@ def two_classes_Abalone(Abalone_df):
             class_category[i] = 0
 
 
+
     Abalone_df = Abalone_df.drop(["Class_number_of_rings"], axis=1)
 
     Abalone_df["Class"] = class_category
 
     return Abalone_df
+
+
+
 
 
 def four_classes_Abalone(Abalone_df):
@@ -80,11 +73,15 @@ def four_classes_Abalone(Abalone_df):
             class_category[i] = int(3)
 
 
+
     Abalone_df = Abalone_df.drop(["Class_number_of_rings"], axis=1)
 
     Abalone_df["Class"] = class_category
 
     return Abalone_df
+
+
+
 
 
 def get_features(Abalone_df, Sex_onehotencoded, test_size):
@@ -104,6 +101,9 @@ def get_features(Abalone_df, Sex_onehotencoded, test_size):
     return X_train, X_test
 
 
+
+
+
 def get_labels(Abalone_df, test_size):
 
     labels = Abalone_df.iloc[:, 7]
@@ -119,7 +119,11 @@ def get_labels(Abalone_df, test_size):
     y_test = np.array(test_list)
 
 
+
     return y_train, y_test
+
+
+
 
 
 def GANs_two_class_real_data(
@@ -147,6 +151,9 @@ def GANs_two_class_real_data(
     y_real = np.ones((X_real.shape[0],))
 
     return X_real, y_real
+
+
+
 
 
 def GANs_four_class_real_data(X_train, y_train):
@@ -178,6 +185,7 @@ def GANs_four_class_real_data(X_train, y_train):
     X_real_3 = np.array(X_real_3)
 
 
+
     y_real_0 = np.full((X_real_0.shape[0],), 0)
 
     y_real_2 = np.full((X_real_2.shape[0],), 2)
@@ -185,7 +193,17 @@ def GANs_four_class_real_data(X_train, y_train):
     y_real_3 = np.full((X_real_3.shape[0],), 3)
 
 
+
     return X_real_0, X_real_2, X_real_3, y_real_0, y_real_2, y_real_3
+
+
+
+
+
+import torch
+
+
+
 
 
 ######### GETTING THE GPU ###########
@@ -203,6 +221,9 @@ def get_default_device():
         return torch.device("cpu")
 
 
+
+
+
 def to_device(data, device):
 
     """Move tensor(s) to chosen device"""
@@ -214,9 +235,13 @@ def to_device(data, device):
     return data.to(device, non_blocking=True)
 
 
+
+
+
 class DeviceDataLoader:
 
     """Wrap a dataloader to move data to a device"""
+
 
 
     def __init__(self, dl, device):
@@ -224,6 +249,7 @@ class DeviceDataLoader:
         self.dl = dl
 
         self.device = device
+
 
 
     def __iter__(self):
@@ -235,11 +261,25 @@ class DeviceDataLoader:
             yield to_device(b, self.device)
 
 
+
     def __len__(self):
 
         """Number of batches"""
 
         return len(self.dl)
+
+
+
+
+
+from torch import nn
+
+from tqdm.auto import tqdm
+
+from torch.utils.data import DataLoader
+
+
+
 
 
 class train_discriminator:
@@ -283,6 +323,7 @@ class train_discriminator:
         self.majority_class = majority_class
 
 
+
     def __call__(self):
 
         self.opt_d.zero_grad()
@@ -324,6 +365,7 @@ class train_discriminator:
         real_score = torch.mean(real_preds).item()
 
 
+
         # Generate fake data
 
         # latent = torch.randn(batch_size, latent_size, 1, 1, device=device)
@@ -331,6 +373,7 @@ class train_discriminator:
         fake_data = self.generator(self.latent_data)
 
         # fake = gen(X_oversampled.float().to(device))
+
 
 
         # Pass fake data through discriminator
@@ -352,12 +395,15 @@ class train_discriminator:
             fake_targets = torch.ones_like(fake_preds, device=self.device)
 
 
+
         # fake_loss = F.binary_cross_entropy(fake_preds, fake_targets)
+
 
 
         fake_loss = criterion(fake_preds, fake_targets)
 
         fake_score = torch.mean(fake_preds).item()
+
 
 
         # Update discriminator weights
@@ -369,6 +415,9 @@ class train_discriminator:
         self.opt_d.step()
 
         return loss.item(), real_score, fake_score
+
+
+
 
 
 class train_generator:
@@ -392,6 +441,7 @@ class train_generator:
         self.minority_class = minority_class
 
 
+
     def __call__(self):
 
         # Clear generator gradients
@@ -399,9 +449,11 @@ class train_generator:
         self.opt_g.zero_grad()
 
 
+
         # Generate fake images
 
         fake_data = self.generator(self.latent_data)
+
 
 
         # Try to fool the discriminator
@@ -435,6 +487,7 @@ class train_generator:
         loss = criterion(preds, targets)
 
 
+
         # Update generator weights
 
         loss.backward()
@@ -442,7 +495,11 @@ class train_generator:
         self.opt_g.step()
 
 
+
         return loss.item()
+
+
+
 
 
 class SG_fit:
@@ -492,9 +549,11 @@ class SG_fit:
         self.majority_class = majority_class
 
 
+
     def __call__(self):
 
         torch.cuda.empty_cache()
+
 
 
         # Losses & scores
@@ -506,6 +565,7 @@ class SG_fit:
         real_scores = []
 
         fake_scores = []
+
 
 
         # Create optimizers
@@ -521,6 +581,7 @@ class SG_fit:
             self.generator.parameters(), lr=self.lr, betas=(0.5, 0.999)
 
         )
+
 
 
         for epoch in range(self.epochs):
@@ -572,6 +633,7 @@ class SG_fit:
                 loss_g = train_gen()
 
 
+
             # Record losses & scores
 
             losses_g.append(loss_g)
@@ -581,6 +643,7 @@ class SG_fit:
             real_scores.append(real_score)
 
             fake_scores.append(fake_score)
+
 
 
             # Log losses & scores (last batch)
@@ -596,12 +659,17 @@ class SG_fit:
             )
 
 
+
             # Save generated images
 
             # save_samples(epoch+start_idx, fixed_latent, show=False)
 
 
+
         return losses_g, losses_d, real_scores, fake_scores
+
+
+
 
 
 class G_fit:
@@ -647,9 +715,11 @@ class G_fit:
         self.majority_class = majority_class
 
 
+
     def __call__(self):
 
         torch.cuda.empty_cache()
+
 
 
         # Losses & scores
@@ -661,6 +731,7 @@ class G_fit:
         real_scores = []
 
         fake_scores = []
+
 
 
         # Create optimizers
@@ -676,6 +747,7 @@ class G_fit:
             self.generator.parameters(), lr=self.lr, betas=(0.5, 0.999)
 
         )
+
 
 
         for epoch in range(self.epochs):
@@ -733,6 +805,7 @@ class G_fit:
                 loss_g = train_gen()
 
 
+
             # Record losses & scores
 
             losses_g.append(loss_g)
@@ -742,6 +815,7 @@ class G_fit:
             real_scores.append(real_score)
 
             fake_scores.append(fake_score)
+
 
 
             # Log losses & scores (last batch)
@@ -757,12 +831,17 @@ class G_fit:
             )
 
 
+
             # Save generated images
 
             # save_samples(epoch+start_idx, fixed_latent, show=False)
 
 
+
         return losses_g, losses_d, real_scores, fake_scores
+
+
+
 
 
 def get_generator_block(input_dim, output_dim):  # Generator Block
@@ -776,6 +855,9 @@ def get_generator_block(input_dim, output_dim):  # Generator Block
         nn.ReLU(inplace=True),
 
     )
+
+
+
 
 
 class GANs_Generator(nn.Module):  # Generator Model
@@ -803,14 +885,19 @@ class GANs_Generator(nn.Module):  # Generator Model
         )
 
 
+
     def forward(self, noise):
 
         return self.generator(noise)
 
 
+
     def get_generator(self):
 
         return self.generator
+
+
+
 
 
 def get_discriminator_block(input_dim, output_dim):  # Discriminator Block
@@ -820,6 +907,9 @@ def get_discriminator_block(input_dim, output_dim):  # Discriminator Block
         nn.Linear(input_dim, output_dim), nn.LeakyReLU(0.2, inplace=True)
 
     )
+
+
+
 
 
 class GANs_Discriminator(nn.Module):  # Discriminator Model
@@ -841,14 +931,25 @@ class GANs_Discriminator(nn.Module):  # Discriminator Model
         )
 
 
+
     def forward(self, image):
 
         return self.discriminator(image)
 
 
+
     def get_disc(self):
 
         return self.discriminator
+
+
+
+
+
+from torch.utils.data import TensorDataset
+
+
+
 
 
 def f1_sg(
@@ -888,10 +989,13 @@ def f1_sg(
     # X_oversampled = to_device(X_oversampled.float(), device)
 
 
+
     # print(X_oversampled.shape)
 
 
+
     # X_real, y_real = GANs_two_class_real_data(X_train, y_train)
+
 
 
     ##### Wrapping all the tensors in a Tensor Dataset. #####
@@ -903,11 +1007,13 @@ def f1_sg(
     my_dataset = TensorDataset(torch.Tensor(X_real), torch.Tensor(y_real))
 
 
+
     # lr = 0.0002
 
     # epochs = 150
 
     # batch_size = 128
+
 
 
     ##### Loading our Tensor Dataset into a Dataloader. #####
@@ -917,6 +1023,7 @@ def f1_sg(
     train_dl = DeviceDataLoader(train_dl, device)
 
 
+
     ##### Initialising the generator and discriminator objects ######
 
     gen1 = GANs_Generator(X_train.shape[1], X_train.shape[1], 128)
@@ -924,11 +1031,13 @@ def f1_sg(
     disc1 = GANs_Discriminator(X_train.shape[1], 128)
 
 
+
     ##### Loading the model in GPU #####
 
     generator_SG = to_device(gen1.generator, device)
 
     discriminator_SG = to_device(disc1.discriminator, device)
+
 
 
     SG_fit_func = SG_fit(
@@ -956,7 +1065,11 @@ def f1_sg(
     history1 = SG_fit_func()  # Callable object
 
 
+
     return generator_SG
+
+
+
 
 
 def f1_g(
@@ -994,10 +1107,13 @@ def f1_g(
     # X_oversampled = to_device(X_oversampled.float(), device)
 
 
+
     # print(X_oversampled.shape)
 
 
+
     # X_real, y_real = GANs_two_class_real_data(X_train, y_train)
+
 
 
     ##### Wrapping all the tensors in a Tensor Dataset. #####
@@ -1009,11 +1125,13 @@ def f1_g(
     my_dataset = TensorDataset(torch.Tensor(X_real), torch.Tensor(y_real))
 
 
+
     # lr = 0.0002
 
     # epochs = 150
 
     # batch_size = 128
+
 
 
     ##### Loading our Tensor Dataset into a Dataloader. #####
@@ -1023,14 +1141,17 @@ def f1_g(
     train_dl = DeviceDataLoader(train_dl, device)
 
 
+
     gen2 = GANs_Generator(X_train.shape[1], X_train.shape[1], 128)
 
     disc2 = GANs_Discriminator(X_train.shape[1], 128)
 
 
+
     generator_G = to_device(gen2.generator, device)
 
     discriminator_G = to_device(disc2.discriminator, device)
+
 
 
     G_fit_func = G_fit(
@@ -1056,8 +1177,16 @@ def f1_g(
     history2 = G_fit_func()
 
 
+
     return generator_G
 
+
+
+
+
+from sklearn.model_selection import cross_val_predict
+
+from imblearn.over_sampling import SMOTE
 
 from sklearn.metrics import (
 
@@ -1072,6 +1201,15 @@ from sklearn.metrics import (
     classification_report,
 
 )
+
+
+
+from sklearn.ensemble import RandomForestClassifier
+
+from imblearn.over_sampling import ADASYN
+
+
+
 
 
 def shuffle_in_unison(a, b):  # Shuffling the features and labels in unison.
@@ -1100,158 +1238,6 @@ def shuffle_in_unison(a, b):  # Shuffling the features and labels in unison.
 
     return shuffled_a, shuffled_b
 
-class HybridGAN(BaseEstimator):
-    """SMOTE/ADASYN + GAN amalgamation as imblearn sampler.
-
-    Wraps the existing SMOTE/ADASYN + GAN logic from this file
-    (GANs_two_class_real_data / f1_sg) without modifying it.
-    ``base_sampler`` is any imblearn over-sampler (SMOTE(), ADASYN(...))
-    injected via __init__ so Pipeline.clone() works.
-    """
-    sampling_time = 0
-
-    def __init__(self, base_sampler=None, epochs=150, lr=0.0002, batch_size=128, device=None, hidden_dim=128):
-        self.base_sampler = base_sampler
-        self.epochs = epochs
-        self.lr = lr
-        self.batch_size = batch_size
-        self.device = device
-        self.hidden_dim = hidden_dim
-
-    def fit(self, X, y):
-        return self
-
-    def fit_resample(self, X, y):
-        # Preserve DataFrame column handling; Pipeline may pass ndarray or DataFrame
-        start = time.perf_counter_ns()
-        is_df = isinstance(X, pd.DataFrame)
-        X_df = X if is_df else pd.DataFrame(X)
-        y_s = pd.Series(y) if not isinstance(y, pd.Series) else y
-        y_np = y_s.to_numpy()
-
-        # minority / majority detection (same as runOnDataset)
-        counts = y_s.value_counts()
-        if len(counts) == 2:
-            minority = counts.idxmin()
-            majority = counts.idxmax()
-        else:
-            minority = 1 if (y_np == 1).sum() < (y_np == 0).sum() else 0
-            majority = 1 - minority if minority in (0, 1) else 0
-
-        device = self.device or torch.device("cpu")
-
-        # 1. Over-sample with injected base_sampler (SMOTE or ADASYN)
-        sampler = self.base_sampler if self.base_sampler is not None else SMOTE()
-        X_over, y_over = sampler.fit_resample(X_df, y_s)
-
-        # Ensure DataFrame for downstream helpers
-        if not isinstance(X_over, pd.DataFrame):
-            X_over = pd.DataFrame(X_over, columns=X_df.columns)
-
-        # 2. Real minority data for GAN discriminator (uses existing helper)
-        X_real, y_real = GANs_two_class_real_data(X_df, y_np, minority)
-
-        # 3. Synthetic tail produced by base_sampler -> used as GAN latent input
-        n_original = X_df.shape[0]
-        X_tail = X_over.iloc[n_original:].to_numpy() if isinstance(X_over, pd.DataFrame) else X_over[n_original:]
-        if X_tail.shape[0] == 0:
-            return X_over, y_over
-
-        X_tail_t = to_device(torch.from_numpy(X_tail).float(), device)
-
-        # 4. Train GAN refining the over-sampled points (reuses existing f1_sg)
-        generator = f1_sg(
-            X_df, y_np, X_over, y_over, X_real, y_real, X_tail_t,
-            device, self.lr, self.epochs, self.batch_size, minority, majority
-        )
-        X_syn = generator(X_tail_t.float().to(device)).cpu().detach().numpy()
-
-        # 5. Re-assemble: original + GAN-refined synthetic points
-        X_head = X_over.iloc[:n_original].to_numpy() if isinstance(X_over, pd.DataFrame) else X_over[:n_original]
-        X_res = np.concatenate([X_head, X_syn], axis=0)
-
-        # 6. Shuffle in unison with labels (reuses existing helper)
-        if isinstance(y_over, pd.Series):
-            y_over_np = y_over.to_numpy()
-        else:
-            y_over_np = np.array(y_over)
-        X_res, y_res = shuffle_in_unison(X_res, y_over_np)
-
-        if is_df:
-            X_res = pd.DataFrame(X_res, columns=X_df.columns)
-
-        end = time.perf_counter_ns()
-
-        total_time = (end - start) / 1e6
-
-        self.sampling_time += total_time
-        
-        return X_res, y_res
-
-class GANSampler(BaseEstimator):
-    """Pure GAN sampler (f1_g) as imblearn sampler.
-
-    Uses base_sampler (e.g. SMOTE()) only to determine how many
-    synthetic points to generate (majority - minority). Trains GAN
-    via existing f1_g on random noise, then concatenates original
-    head with GAN samples.
-    """
-    sampling_time = 0
-
-    def __init__(self, base_sampler=None, epochs=150, lr=0.0002, batch_size=128, device=None):
-        self.base_sampler = base_sampler
-        self.epochs = epochs
-        self.lr = lr
-        self.batch_size = batch_size
-        self.device = device
-
-    def fit(self, X, y):
-        return self
-
-    def fit_resample(self, X, y):
-        start = time.perf_counter_ns()
-        is_df = isinstance(X, pd.DataFrame)
-        X_df = X if is_df else pd.DataFrame(X)
-        y_s = pd.Series(y) if not isinstance(y, pd.Series) else y
-        y_np = y_s.to_numpy()
-        counts = y_s.value_counts()
-        if len(counts) == 2:
-            minority = counts.idxmin()
-            majority = counts.idxmax()
-        else:
-            minority = 1 if (y_np == 1).sum() < (y_np == 0).sum() else 0
-            majority = 1 - minority if minority in (0, 1) else 0
-        device = self.device or torch.device("cpu")
-        # determine synthetic count via base_sampler (SMOTE) tail length
-        sampler = self.base_sampler if self.base_sampler is not None else SMOTE()
-        X_over, y_over = sampler.fit_resample(X_df, y_s)
-        if not isinstance(X_over, pd.DataFrame):
-            X_over = pd.DataFrame(X_over, columns=X_df.columns)
-        n_original = X_df.shape[0]
-        n_synth = X_over.shape[0] - n_original
-        if n_synth <= 0:
-            return X_over, y_over
-        X_real, y_real = GANs_two_class_real_data(X_df, y_np, minority)
-        # train pure GAN (random noise latent)
-        generator = f1_g(X_df, y_np, X_over, y_over, X_real, y_real, device, self.lr, self.epochs, self.batch_size, minority, majority)
-        n_feat = X_df.shape[1]
-        noise = torch.randn(n_synth, n_feat, device=device)
-        X_syn = generator(noise.float().to(device)).cpu().detach().numpy()
-        X_head = X_over.iloc[:n_original].to_numpy() if isinstance(X_over, pd.DataFrame) else X_over[:n_original]
-        X_res = np.concatenate([X_head, X_syn], axis=0)
-        if isinstance(y_over, pd.Series):
-            y_over_np = y_over.to_numpy()
-        else:
-            y_over_np = np.array(y_over)
-        X_res, y_res = shuffle_in_unison(X_res, y_over_np)
-        if is_df:
-            X_res = pd.DataFrame(X_res, columns=X_df.columns)
-
-        end = time.perf_counter_ns()
-        total_time = (end - start) / 1e9
-
-        self.sampling_time += total_time
-        return X_res, y_res
 
 
 
@@ -1279,9 +1265,15 @@ def model_rf(X_train, y_train, X_test, y_test):
 """
 
 
+
+
+
 def hellinger(p, q):
 
     return np.sqrt(0.5 * ((np.sqrt(p) - np.sqrt(q)) ** 2).sum())
+
+
+
 
 
 def hellingerDistance(train, generated):
@@ -1293,15 +1285,19 @@ def hellingerDistance(train, generated):
     df2.columns = df1.columns
 
 
+
     common = pd.merge(df1, df2, how="inner")
+
 
 
     df2 = pd.concat([df2, common]).drop_duplicates(keep=False)
 
 
+
     df1 = df1.div(df1.sum(), axis=1)
 
     df2 = df2.div(df2.sum(), axis=1)
+
 
 
     # print((df2.head()))
@@ -1315,6 +1311,7 @@ def hellingerDistance(train, generated):
         hellinger_distances[col] = dist
 
 
+
     # print(hellinger_distances)
 
     average_distance = np.mean(list(hellinger_distances.values()))
@@ -1322,7 +1319,10 @@ def hellingerDistance(train, generated):
     return average_distance
 
 
-def model_rf(X, y, df, sampler=None):
+
+
+
+def model_rf(X, y, df):
 
     acc_arr = []
 
@@ -1332,20 +1332,12 @@ def model_rf(X, y, df, sampler=None):
 
     rec_arr = []
 
-    sampling_time_start = sampler.sampling_time if sampler else 0
 
-    cv = 5
-    outer_iteration = 30
 
-    for i in range(outer_iteration):
+    for i in range(30):
 
         model = RandomForestClassifier()
-        if sampler:
-            pipeline = Pipeline([("sampler",sampler),("clf",model)])
-        else:
-            pipeline = Pipeline([("clf",model)])
 
-        y_pred = cross_val_predict(pipeline, X, y, cv=cv)
         """
 
       results = cross_validate(estimator=model,
@@ -1373,6 +1365,9 @@ def model_rf(X, y, df, sampler=None):
       """
 
 
+
+        y_pred = cross_val_predict(model, X, y, cv=10)
+
         df = pd.concat(
 
             [
@@ -1398,9 +1393,11 @@ def model_rf(X, y, df, sampler=None):
         acc_arr.append(accuracy)
 
 
+
         f1_mes = f1_score(y, y_pred, average="weighted")
 
         f1_arr.append(f1_mes)
+
 
 
         precision = precision_score(y, y_pred, average="weighted")
@@ -1408,16 +1405,27 @@ def model_rf(X, y, df, sampler=None):
         pre_arr.append(precision)
 
 
+
         recall = recall_score(y, y_pred, average="weighted")
 
         rec_arr.append(recall)
 
-    sampling_time_end = sampler.sampling_time if sampler else 0
-
-    total_sampling_time = sampling_time_end - sampling_time_start
 
 
-    return acc_arr, f1_arr, pre_arr, rec_arr, model, (total_sampling_time / (cv * outer_iteration)),df
+    return acc_arr, f1_arr, pre_arr, rec_arr, model, df
+
+
+
+
+
+from datetime import datetime
+
+from sklearn.preprocessing import LabelEncoder
+
+from sklearn.preprocessing import OneHotEncoder
+
+
+
 
 
 def runOnDataset(file_name_without_extension: str):
@@ -1428,9 +1436,10 @@ def runOnDataset(file_name_without_extension: str):
 
     majority = 0
 
-    df = pd.read_csv(f"./Datasets/{file_name_without_extension}.csv")
+    df = pd.read_csv(f"../Datasets/{file_name_without_extension}.csv")
 
     df = df.dropna(axis=0)
+
 
 
     label_encoder = LabelEncoder()
@@ -1438,6 +1447,7 @@ def runOnDataset(file_name_without_extension: str):
     # onehot_encoder = OneHotEncoder(sparse=False)
 
     onehot_encoder = OneHotEncoder(sparse_output=False)
+
 
 
     if file_name_without_extension == "abalone":
@@ -1453,6 +1463,7 @@ def runOnDataset(file_name_without_extension: str):
         Sex_onehotencoded = onehot_encoder.fit_transform(Sex_labelencoded)
 
 
+
         df["Sex"] = Sex_onehotencoded
 
         # print(df)
@@ -1464,6 +1475,7 @@ def runOnDataset(file_name_without_extension: str):
         y = df["Class"]
 
 
+
     elif file_name_without_extension == "ecoli":
 
         # encoding on first column just ike sex in abalone
@@ -1473,6 +1485,7 @@ def runOnDataset(file_name_without_extension: str):
         Seq_labelencoded = Seq_labelencoded.reshape(len(Seq_labelencoded), 1)
 
         Seq_onehotencoded = onehot_encoder.fit_transform(Seq_labelencoded)
+
 
 
         df["SEQUENCE_NAME"] = Seq_onehotencoded
@@ -1492,6 +1505,7 @@ def runOnDataset(file_name_without_extension: str):
         y = df["Class"]
 
 
+
     else:
 
         X = df.drop(["Class"], axis=1)
@@ -1507,10 +1521,13 @@ def runOnDataset(file_name_without_extension: str):
     # print(y)
 
 
+
     # X_train, X_test, y_train, y_test = train_test_split(df.drop(['Class'], axis=1), df['Class'], test_size=0.2, random_state=10)
 
 
+
     #### Calculating train and test accuracy and f1 score of non oversampled training data ####
+
 
 
     one = df[df["Class"] == 1]
@@ -1518,9 +1535,11 @@ def runOnDataset(file_name_without_extension: str):
     print(len(one))
 
 
+
     zero = df[df["Class"] == 0]
 
     print(len(zero))
+
 
 
     if len(one) < len(zero):
@@ -1536,9 +1555,11 @@ def runOnDataset(file_name_without_extension: str):
         majority = 1
 
 
+
     print("minority:", minority)
 
     print("majority:", majority)
+
 
 
     print("reached here 1")
@@ -1546,9 +1567,11 @@ def runOnDataset(file_name_without_extension: str):
     results = pd.DataFrame()
 
 
+
     print("reached here 2")
 
     minorityTrainData = X[y == minority]
+
 
 
     (
@@ -1580,52 +1603,364 @@ def runOnDataset(file_name_without_extension: str):
     # print(classification_report(y_test, model_normal.predict(X_test)))
 
 
+
     print("Before OverSampling, counts of label '0': {}".format(sum(y == 0)))
 
     print("Before OverSampling, counts of label '1': {}".format(sum(y == 1)))
 
 
+
     device = torch.device("cpu")
 
+
+
     lr = 0.0002
+
     epochs = 150
+
     batch_size = 128
 
-    # All oversampling now happens inside model_rf via Pipeline (no manual fit_resample here)
-    # X, y are unadulterated original data
 
-    # placeholder hellinger / timing values
-    sm_hell = g_hell = sg_hell = ad_hell = ag_hell = 0.0
-    smote_time = g_time = sg_time = sgan_ganonly_time = ada_time = ag_time = ag_ganonly_time = 0.0
 
-    # SMOTE via Pipeline
+    X_real_min, y_real_min = GANs_two_class_real_data(
+
+        X, y, minority
+
+    )  # Defining the real minority data to be put in GANs
+
+
+
+
+
+    start = datetime.now()
+
+    X_SMOTE, y_SMOTE = SMOTE().fit_resample(X, y)
+
+    end = datetime.now()
+
+
+
+    smote_time = (end - start).total_seconds() * 10**3
+
+
+
+    X_Smote_Gan = (
+
+        X_SMOTE[(X.shape[0]) :].to_numpy()
+
+    )  # Extracts the synthetic samples generated by SMOTE which are appended at the end
+
+    X_Smote_Gan = torch.from_numpy(X_Smote_Gan)
+
+    X_Smote_Gan = to_device(X_Smote_Gan.float(), device)
+
+
+
+    # results.loc[len(results)] = [sm_hell]*4
+
+    sg_start = datetime.now()
+
+    # Training our SMOTified GANs and GANs model and fetching their trained generators.
+
+    generator_SG = f1_sg(
+
+        X,
+
+        y,
+
+        X_SMOTE,
+
+        y_SMOTE,
+
+        X_real_min,
+
+        y_real_min,
+
+        X_Smote_Gan,
+
+        device,
+
+        lr,
+
+        epochs,
+
+        batch_size,
+
+        minority,
+
+        majority,
+
+    )
+
+
+
+    X_oversampled_SG = (
+
+        generator_SG(X_Smote_Gan.float().to(device)).cpu().detach().numpy()
+
+    )
+
+    #print(X_oversampled_SG[0])
+
+    #input()
+
+    end = datetime.now()
+
+
+
+    sgan_ganonly_time = (end- sg_start).total_seconds() * 10**3
+
+    sg_time = (end - start).total_seconds() * 10**3
+
+
+
+    SG_dataset = np.concatenate((X_SMOTE[: (X.shape[0])], X_oversampled_SG), axis=0)
+
+    X_SG, y_SG = shuffle_in_unison(SG_dataset, y_SMOTE)
+
+
+
+
+
+    #### Calculating train and test accuracy and f1 score of SMOTE oversampled training data ####
+
+
+
     (
+
         Smote_accuracy,
+
         Smote_f1_score,
+
         Smote_precision,
+
         Smote_recall,
+
         model_smote,
+
         results,
-    ) = model_rf(X, y, results, sampler=SMOTE())
 
-    # SMOTified GAN via HybridGAN (SMOTE + f1_sg)
+    ) = model_rf(X_SMOTE, y_SMOTE, results)
+
+    sm_hell = hellingerDistance(minorityTrainData, X_Smote_Gan)
+
+\
+
+    #### Calculating train and test accuracy and f1 score of SMOTified GANs oversampled training data ###
+
+
+
     SG_accuracy, SG_f1_score, SG_precision, SG_recall, model_SG, results = model_rf(
-        X, y, results, sampler=HybridGAN(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+
+        X_SG, y_SG, results
+
     )
 
-    # Pure GAN via GANSampler (random noise + f1_g, count from SMOTE)
-    G_accuracy, G_f1_score, G_precision, G_recall, model_G, results = model_rf(
-        X, y, results, sampler=GANSampler(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+
+
+    sg_hell = hellingerDistance(minorityTrainData, X_oversampled_SG)
+
+    # results.loc[len(results)] = [sg_hell]*4
+
+    # print(classification_report(y_test, model_SG.predict(X_test)))
+
+
+
+    start = datetime.now()
+
+    generator_G = f1_g(
+
+        X,
+
+        y,
+
+        X_SMOTE,
+
+        y_SMOTE,
+
+        X_real_min,
+
+        y_real_min,
+
+        device,
+
+        lr,
+
+        epochs,
+
+        batch_size,
+
+        minority,
+
+        majority,
+
     )
+
+    GANs_noise = torch.randn(
+
+        (X_Smote_Gan.shape[0]), (X_Smote_Gan.shape[1]), device=device
+
+    )  # X_Smote_Gan shape reprsents the shape of the number of synthetic samples
+
+    X_oversampled_G = generator_G(GANs_noise.float().to(device)).cpu().detach().numpy()
+
+    end = datetime.now()
+
+    g_time = (end - start).total_seconds() * 10**3
+
+
+
+    G_dataset = np.concatenate((X_SMOTE[: (X.shape[0])], X_oversampled_G), axis=0)
+
+    X_G, y_G = shuffle_in_unison(G_dataset, y_SMOTE)
+
+
+
+
+
+
+
+
+
+    G_accuracy, G_f1_score, G_precision, G_recall, model_G, results = model_rf(
+
+        X_G, y_G, results
+
+    )
+
+
+
+    g_hell = hellingerDistance(minorityTrainData, X_oversampled_G)
+
+    # results.loc[len(results)] = [g_hell]*4
+
+    # print(classification_report(y_test, model_G.predict(X_test)))
+
+
 
     if file_name_without_extension != "drd":
-        ADA_accuracy, ADA_f1_score, ADA_precision, ADA_recall, model_ADA, results = model_rf(
-            X, y, results, sampler=ADASYN(sampling_strategy=0.95)
+
+        start = datetime.now()
+
+        adasyn = ADASYN(sampling_strategy=0.95)
+
+        X_ADASYN, y_ADASYN = adasyn.fit_resample(X, y)
+
+        end = datetime.now()
+
+
+
+        ada_time = (end - start).total_seconds() * 10**3
+
+
+
+        X_Ada_Gan = X_ADASYN[(X.shape[0]) :].to_numpy()
+
+        X_Ada_Gan = torch.from_numpy(X_Ada_Gan)
+
+        X_Ada_Gan = to_device(X_Ada_Gan.float(), device)
+
+
+
+
+
+        # results.loc[len(results)] = [ad_hell]*4
+
+        # print(classification_report(y_test, model_smote.predict(X_test)))
+
+
+
+        # Training our SMOTified GANs and GANs model and fetching their trained generators.
+
+        ag_start = datetime.now()
+
+        generator_AG = f1_sg(
+
+            X,
+
+            y,
+
+            X_ADASYN,
+
+            y_ADASYN,
+
+            X_real_min,
+
+            y_real_min,
+
+            X_Ada_Gan,
+
+            device,
+
+            lr,
+
+            epochs,
+
+            batch_size,
+
+            minority,
+
+            majority,
+
         )
 
-        AG_accuracy, AG_f1_score, AG_precision, AG_recall, model_AG, results = model_rf(
-            X, y, results, sampler=HybridGAN(base_sampler=ADASYN(sampling_strategy=0.95), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+
+
+        X_oversampled_AG = (
+
+            generator_AG(X_Ada_Gan.float().to(device)).cpu().detach().numpy()
+
         )
+
+        end = datetime.now()
+
+        ag_ganonly_time = (end - ag_start).total_seconds() * 10**3
+
+        ag_time = (end - start).total_seconds() * 10**3
+
+
+
+        AG_dataset = np.concatenate(
+
+            (X_ADASYN[: (X.shape[0])], X_oversampled_AG), axis=0
+
+        )
+
+        X_AG, y_AG = shuffle_in_unison(AG_dataset, y_ADASYN)
+
+
+
+
+
+
+
+
+
+        ADA_accuracy, ADA_f1_score, ADA_precision, ADA_recall, model_ADA, results = (
+
+            model_rf(X_ADASYN, y_ADASYN, results)
+
+        )
+
+        ad_hell = hellingerDistance(minorityTrainData, X_Ada_Gan)
+
+
+
+        AG_accuracy, AG_f1_score, AG_precision, AG_recall, model_AG, results = model_rf(
+
+            X_AG, y_AG, results
+
+        )
+
+
+
+        ag_hell = hellingerDistance(minorityTrainData, X_oversampled_AG)
+
+        # results.loc[len(results)] = [ag_hell]*4
+
+        # print(classification_report(y_test, model_G.predict(X_test)))
+
+
 
     if file_name_without_extension == "drd":
 
@@ -1764,7 +2099,11 @@ def runOnDataset(file_name_without_extension: str):
         )
 
 
+
     output_df.to_csv(f"NewResults/{file_name_without_extension}_result.csv")
+
+
+
 
 
 def main():
@@ -1793,8 +2132,7 @@ def main():
 
     files = [
 
-        # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
-        "bcwd"
+        "drd","drp","dtcr","fhs","ggcm","pid","tsd"
 
     ]
 
@@ -1803,6 +2141,9 @@ def main():
         #sys.stdout.write(f"\n\nOperating on {file}\n\n")
 
         runOnDataset(f)
+
+
+
 
 
 if __name__ == "__main__":
