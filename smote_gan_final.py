@@ -1468,7 +1468,7 @@ def model_rf(X, y, df,model,model_name,sampler=None):
     return acc_arr, f1_arr, pre_arr, rec_arr, model, (total_sampling_time / (cv * outer_iteration)),df
 
 
-def runOnDataset(file_name_without_extension: str, model, model_name):
+def runOnDataset(file_name_without_extension: str, model, model_name, output_mode = "a"):
 
     # reset class-level accumulators so each dataset's timing is isolated
     TimedSMOTE.sampling_time = 0
@@ -1688,7 +1688,7 @@ def runOnDataset(file_name_without_extension: str, model, model_name):
         output_df = pd.DataFrame(
 
             {
-                "model_name": [model_name * len(Normal_accuracy)],
+                "model_name": [model_name] * len(Normal_accuracy),
 
                 "Normal_accuracy": Normal_accuracy,
 
@@ -1743,7 +1743,7 @@ def runOnDataset(file_name_without_extension: str, model, model_name):
         output_df = pd.DataFrame(
 
             {
-                "model_name": [model_name * len(Normal_accuracy)],
+                "model_name": [model_name] * len(Normal_accuracy),
 
                 "Normal_accuracy": Normal_accuracy,
 
@@ -1816,14 +1816,15 @@ def runOnDataset(file_name_without_extension: str, model, model_name):
             }
 
         )
-
+    
+    output_dir = Path("./NewResults")
+    output_dir.mkdir(exist_ok=True)
+    output_path = output_dir / f"{file_name_without_extension}_result.csv"
     output_df.to_csv(
-        f"./NewResults/{file_name_without_extension}_result.csv",
-        mode="a",
+        output_path,
+        mode=output_mode,
         index=False,
-        header=not Path(
-            f"./NewResults/{file_name_without_extension}_result.csv"
-        ).exists(),
+        header=output_mode != "a",
     )
 
 
@@ -1862,7 +1863,7 @@ def main():
 
         #sys.stdout.write(f"\n\nOperating on {file}\n\n")
 
-        runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier")
+        runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
         runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
         runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
