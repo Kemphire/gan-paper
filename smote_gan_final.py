@@ -1,3 +1,6 @@
+from pathlib import Path
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 import pandas as pd
 from pandas import DataFrame
 import numpy as np
@@ -1368,7 +1371,7 @@ def hellingerDistance(train, generated):
     return average_distance
 
 
-def model_rf(X, y, df, sampler=None):
+def model_rf(X, y, df,model,model_name,sampler=None):
 
     acc_arr = []
 
@@ -1385,7 +1388,6 @@ def model_rf(X, y, df, sampler=None):
 
     for i in range(outer_iteration):
 
-        model = RandomForestClassifier()
         if sampler:
             pipeline = Pipeline([("sampler",sampler),("clf",model)])
         else:
@@ -1466,7 +1468,7 @@ def model_rf(X, y, df, sampler=None):
     return acc_arr, f1_arr, pre_arr, rec_arr, model, (total_sampling_time / (cv * outer_iteration)),df
 
 
-def runOnDataset(file_name_without_extension: str):
+def runOnDataset(file_name_without_extension: str, model, model_name):
 
     # reset class-level accumulators so each dataset's timing is isolated
     TimedSMOTE.sampling_time = 0
@@ -1618,7 +1620,7 @@ def runOnDataset(file_name_without_extension: str):
 
         results,
 
-    ) = model_rf(X, y, results)
+    ) = model_rf(X, y, model=model,model_name=model_name,df=results)
 
     print("Normal_accuracy: ", Normal_accuracy)
 
@@ -1660,25 +1662,25 @@ def runOnDataset(file_name_without_extension: str):
         model_smote,
         smote_time,
         results,
-    ) = model_rf(X, y, results, sampler=TimedSMOTE())
+    ) = model_rf(X, y, results,model=model,model_name=model_name,sampler=TimedSMOTE())
 
     # SMOTified GAN via HybridGAN (SMOTE + f1_sg)
     SG_accuracy, SG_f1_score, SG_precision, SG_recall, model_SG, sg_time, results = model_rf(
-        X, y, results, sampler=HybridGAN(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+        X, y, results,model=model,model_name=model_name, sampler=HybridGAN(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
     )
 
     # Pure GAN via GANSampler (random noise + f1_g, count from SMOTE)
     G_accuracy, G_f1_score, G_precision, G_recall, model_G, g_time, results = model_rf(
-        X, y, results, sampler=GANSampler(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+        X, y, results,model=model,model_name=model_name,sampler=GANSampler(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
     )
 
     if file_name_without_extension != "drd":
         ADA_accuracy, ADA_f1_score, ADA_precision, ADA_recall, model_ADA, ada_time, results = model_rf(
-            X, y, results, sampler=TimedADASYN(sampling_strategy=0.95)
+            X, y, results,model=model,model_name=model_name,sampler=TimedADASYN(sampling_strategy=0.95)
         )
 
         AG_accuracy, AG_f1_score, AG_precision, AG_recall, model_AG, ag_time, results = model_rf(
-            X, y, results, sampler=HybridGAN(base_sampler=ADASYN(sampling_strategy=0.95), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+            X, y, results,model=model,model_name=model_name,sampler=HybridGAN(base_sampler=ADASYN(sampling_strategy=0.95), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
         )
 
     if file_name_without_extension == "drd":
@@ -1686,6 +1688,7 @@ def runOnDataset(file_name_without_extension: str):
         output_df = pd.DataFrame(
 
             {
+                "model_name": [model_name * len(Normal_accuracy)],
 
                 "Normal_accuracy": Normal_accuracy,
 
@@ -1740,6 +1743,7 @@ def runOnDataset(file_name_without_extension: str):
         output_df = pd.DataFrame(
 
             {
+                "model_name": [model_name * len(Normal_accuracy)],
 
                 "Normal_accuracy": Normal_accuracy,
 
@@ -1813,8 +1817,14 @@ def runOnDataset(file_name_without_extension: str):
 
         )
 
-
-    output_df.to_csv(f"./NewResults/{file_name_without_extension}_result.csv")
+    output_df.to_csv(
+        f"./NewResults/{file_name_without_extension}_result.csv",
+        mode="a",
+        index=False,
+        header=not Path(
+            f"./NewResults/{file_name_without_extension}_result.csv"
+        ).exists(),
+    )
 
 
 def main():
@@ -1852,7 +1862,9 @@ def main():
 
         #sys.stdout.write(f"\n\nOperating on {file}\n\n")
 
-        runOnDataset(f)
+        runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier")
+        runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
+        runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
 
 if __name__ == "__main__":
