@@ -1100,6 +1100,52 @@ def shuffle_in_unison(a, b):  # Shuffling the features and labels in unison.
 
     return shuffled_a, shuffled_b
 
+class TimedSMOTE(BaseEstimator):
+    """Thin wrapper measuring fit_resample time in ms."""
+    sampling_time = 0
+
+    def __init__(self, sampling_strategy="auto", k_neighbors=5, random_state=None):
+        self.sampling_strategy = sampling_strategy
+        self.k_neighbors = k_neighbors
+        self.random_state = random_state
+
+    def fit(self, X, y):
+        return self
+
+    def fit_resample(self, X, y):
+        start = time.perf_counter_ns()
+        sampler = SMOTE(
+            sampling_strategy=self.sampling_strategy,
+            k_neighbors=self.k_neighbors,
+            random_state=self.random_state,
+        )
+        X_res, y_res = sampler.fit_resample(X, y)
+        TimedSMOTE.sampling_time += (time.perf_counter_ns() - start) / 1e6
+        return X_res, y_res
+
+class TimedADASYN(BaseEstimator):
+    """Thin wrapper measuring ADASYN fit_resample time in ms."""
+    sampling_time = 0
+
+    def __init__(self, sampling_strategy=0.95, n_neighbors=5, random_state=None):
+        self.sampling_strategy = sampling_strategy
+        self.n_neighbors = n_neighbors
+        self.random_state = random_state
+
+    def fit(self, X, y):
+        return self
+
+    def fit_resample(self, X, y):
+        start = time.perf_counter_ns()
+        sampler = ADASYN(
+            sampling_strategy=self.sampling_strategy,
+            n_neighbors=self.n_neighbors,
+            random_state=self.random_state,
+        )
+        X_res, y_res = sampler.fit_resample(X, y)
+        TimedADASYN.sampling_time += (time.perf_counter_ns() - start) / 1e6
+        return X_res, y_res
+
 class HybridGAN(BaseEstimator):
     """SMOTE/ADASYN + GAN amalgamation as imblearn sampler.
 
@@ -1184,8 +1230,8 @@ class HybridGAN(BaseEstimator):
 
         total_time = (end - start) / 1e6
 
-        self.sampling_time += total_time
-        
+        HybridGAN.sampling_time += total_time
+
         return X_res, y_res
 
 class GANSampler(BaseEstimator):
@@ -1248,9 +1294,9 @@ class GANSampler(BaseEstimator):
             X_res = pd.DataFrame(X_res, columns=X_df.columns)
 
         end = time.perf_counter_ns()
-        total_time = (end - start) / 1e9
+        total_time = (end - start) / 1e6
 
-        self.sampling_time += total_time
+        GANSampler.sampling_time += total_time
         return X_res, y_res
 
 
@@ -1332,7 +1378,7 @@ def model_rf(X, y, df, sampler=None):
 
     rec_arr = []
 
-    sampling_time_start = sampler.sampling_time if sampler else 0
+    sampling_time_start = type(sampler).sampling_time if sampler else 0
 
     cv = 5
     outer_iteration = 30
@@ -1412,7 +1458,7 @@ def model_rf(X, y, df, sampler=None):
 
         rec_arr.append(recall)
 
-    sampling_time_end = sampler.sampling_time if sampler else 0
+    sampling_time_end = type(sampler).sampling_time if sampler else 0
 
     total_sampling_time = sampling_time_end - sampling_time_start
 
@@ -1421,6 +1467,12 @@ def model_rf(X, y, df, sampler=None):
 
 
 def runOnDataset(file_name_without_extension: str):
+
+    # reset class-level accumulators so each dataset's timing is isolated
+    TimedSMOTE.sampling_time = 0
+    TimedADASYN.sampling_time = 0
+    HybridGAN.sampling_time = 0
+    GANSampler.sampling_time = 0
 
     device = torch.device("cpu")
 
@@ -1562,6 +1614,7 @@ def runOnDataset(file_name_without_extension: str):
         Normal_recall,
 
         model_normal,
+        _,
 
         results,
 
@@ -1596,7 +1649,7 @@ def runOnDataset(file_name_without_extension: str):
 
     # placeholder hellinger / timing values
     sm_hell = g_hell = sg_hell = ad_hell = ag_hell = 0.0
-    smote_time = g_time = sg_time = sgan_ganonly_time = ada_time = ag_time = ag_ganonly_time = 0.0
+    smote_time = g_time = sg_time = ada_time = ag_time = 0.0
 
     # SMOTE via Pipeline
     (
@@ -1605,25 +1658,26 @@ def runOnDataset(file_name_without_extension: str):
         Smote_precision,
         Smote_recall,
         model_smote,
+        smote_time,
         results,
-    ) = model_rf(X, y, results, sampler=SMOTE())
+    ) = model_rf(X, y, results, sampler=TimedSMOTE())
 
     # SMOTified GAN via HybridGAN (SMOTE + f1_sg)
-    SG_accuracy, SG_f1_score, SG_precision, SG_recall, model_SG, results = model_rf(
+    SG_accuracy, SG_f1_score, SG_precision, SG_recall, model_SG, sg_time, results = model_rf(
         X, y, results, sampler=HybridGAN(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
     )
 
     # Pure GAN via GANSampler (random noise + f1_g, count from SMOTE)
-    G_accuracy, G_f1_score, G_precision, G_recall, model_G, results = model_rf(
+    G_accuracy, G_f1_score, G_precision, G_recall, model_G, g_time, results = model_rf(
         X, y, results, sampler=GANSampler(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
     )
 
     if file_name_without_extension != "drd":
-        ADA_accuracy, ADA_f1_score, ADA_precision, ADA_recall, model_ADA, results = model_rf(
-            X, y, results, sampler=ADASYN(sampling_strategy=0.95)
+        ADA_accuracy, ADA_f1_score, ADA_precision, ADA_recall, model_ADA, ada_time, results = model_rf(
+            X, y, results, sampler=TimedADASYN(sampling_strategy=0.95)
         )
 
-        AG_accuracy, AG_f1_score, AG_precision, AG_recall, model_AG, results = model_rf(
+        AG_accuracy, AG_f1_score, AG_precision, AG_recall, model_AG, ag_time, results = model_rf(
             X, y, results, sampler=HybridGAN(base_sampler=ADASYN(sampling_strategy=0.95), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
         )
 
@@ -1753,18 +1807,14 @@ def runOnDataset(file_name_without_extension: str):
 
                 "SG_time": sg_time,
 
-                "SG_Ganonly_time": sgan_ganonly_time,
-
-                "AG_time": ag_time,
-
-                "AG_Ganonly_time": ag_ganonly_time
+                "AG_time": ag_time
 
             }
 
         )
 
 
-    output_df.to_csv(f"NewResults/{file_name_without_extension}_result.csv")
+    output_df.to_csv(f"./NewResults/{file_name_without_extension}_result.csv")
 
 
 def main():
