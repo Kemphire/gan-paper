@@ -18,12 +18,15 @@ from sklearn.metrics import (
     accuracy_score,
     precision_score,
     recall_score,
+    roc_auc_score,
+    matthews_corrcoef,
     classification_report,
 )
 from sklearn.ensemble import RandomForestClassifier
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.pipeline import Pipeline
 
+from imblearn.metrics import specificity_score
 
 def two_classes_Abalone(Abalone_df):
 
@@ -1145,7 +1148,15 @@ class TimedADASYN(BaseEstimator):
             n_neighbors=self.n_neighbors,
             random_state=self.random_state,
         )
-        X_res, y_res = sampler.fit_resample(X, y)
+        try:
+            X_res, y_res = sampler.fit_resample(X, y)
+        except Exception:
+            sampler = ADASYN(
+                sampling_strategy="auto",
+                n_neighbors=self.n_neighbors,
+                random_state=self.random_state,
+            )
+            X_res, y_res = sampler.fit_resample(X, y)
         TimedADASYN.sampling_time += (time.perf_counter_ns() - start) / 1e6
         return X_res, y_res
 
@@ -1172,7 +1183,6 @@ class HybridGAN(BaseEstimator):
 
     def fit_resample(self, X, y):
         # Preserve DataFrame column handling; Pipeline may pass ndarray or DataFrame
-        start = time.perf_counter_ns()
         is_df = isinstance(X, pd.DataFrame)
         X_df = X if is_df else pd.DataFrame(X)
         y_s = pd.Series(y) if not isinstance(y, pd.Series) else y
@@ -1180,16 +1190,13 @@ class HybridGAN(BaseEstimator):
 
         # minority / majority detection (same as runOnDataset)
         counts = y_s.value_counts()
-        if len(counts) == 2:
-            minority = counts.idxmin()
-            majority = counts.idxmax()
-        else:
-            minority = 1 if (y_np == 1).sum() < (y_np == 0).sum() else 0
-            majority = 1 - minority if minority in (0, 1) else 0
+        minority = counts.idxmin()
+        majority = counts.idxmax()
 
         device = self.device or torch.device("cpu")
 
         # 1. Over-sample with injected base_sampler (SMOTE or ADASYN)
+        start = time.perf_counter_ns()
         sampler = self.base_sampler if self.base_sampler is not None else SMOTE()
         X_over, y_over = sampler.fit_resample(X_df, y_s)
 
@@ -1214,6 +1221,7 @@ class HybridGAN(BaseEstimator):
             device, self.lr, self.epochs, self.batch_size, minority, majority
         )
         X_syn = generator(X_tail_t.float().to(device)).cpu().detach().numpy()
+        end = time.perf_counter_ns()
 
         # 5. Re-assemble: original + GAN-refined synthetic points
         X_head = X_over.iloc[:n_original].to_numpy() if isinstance(X_over, pd.DataFrame) else X_over[:n_original]
@@ -1229,7 +1237,6 @@ class HybridGAN(BaseEstimator):
         if is_df:
             X_res = pd.DataFrame(X_res, columns=X_df.columns)
 
-        end = time.perf_counter_ns()
 
         total_time = (end - start) / 1e6
 
@@ -1258,18 +1265,15 @@ class GANSampler(BaseEstimator):
         return self
 
     def fit_resample(self, X, y):
-        start = time.perf_counter_ns()
         is_df = isinstance(X, pd.DataFrame)
         X_df = X if is_df else pd.DataFrame(X)
         y_s = pd.Series(y) if not isinstance(y, pd.Series) else y
         y_np = y_s.to_numpy()
         counts = y_s.value_counts()
-        if len(counts) == 2:
-            minority = counts.idxmin()
-            majority = counts.idxmax()
-        else:
-            minority = 1 if (y_np == 1).sum() < (y_np == 0).sum() else 0
-            majority = 1 - minority if minority in (0, 1) else 0
+
+        minority = counts.idxmin()
+        majority = counts.idxmax()
+
         device = self.device or torch.device("cpu")
         # determine synthetic count via base_sampler (SMOTE) tail length
         sampler = self.base_sampler if self.base_sampler is not None else SMOTE()
@@ -1282,10 +1286,12 @@ class GANSampler(BaseEstimator):
             return X_over, y_over
         X_real, y_real = GANs_two_class_real_data(X_df, y_np, minority)
         # train pure GAN (random noise latent)
+        start = time.perf_counter_ns()
         generator = f1_g(X_df, y_np, X_over, y_over, X_real, y_real, device, self.lr, self.epochs, self.batch_size, minority, majority)
         n_feat = X_df.shape[1]
         noise = torch.randn(n_synth, n_feat, device=device)
         X_syn = generator(noise.float().to(device)).cpu().detach().numpy()
+        end = time.perf_counter_ns()
         X_head = X_over.iloc[:n_original].to_numpy() if isinstance(X_over, pd.DataFrame) else X_over[:n_original]
         X_res = np.concatenate([X_head, X_syn], axis=0)
         if isinstance(y_over, pd.Series):
@@ -1296,7 +1302,6 @@ class GANSampler(BaseEstimator):
         if is_df:
             X_res = pd.DataFrame(X_res, columns=X_df.columns)
 
-        end = time.perf_counter_ns()
         total_time = (end - start) / 1e6
 
         GANSampler.sampling_time += total_time
@@ -1381,10 +1386,16 @@ def model_rf(X, y, df,model,model_name,sampler=None):
 
     rec_arr = []
 
+    specif_arr = []
+
+    auc_arr = []
+
+    matthews_arr = []
+
     sampling_time_start = type(sampler).sampling_time if sampler else 0
 
-    cv = 5
-    outer_iteration = 30
+    cv = 2
+    outer_iteration = 1
 
     for i in range(outer_iteration):
 
@@ -1421,25 +1432,21 @@ def model_rf(X, y, df,model,model_name,sampler=None):
       """
 
 
-        df = pd.concat(
 
-            [
+        specificity = specificity_score(y,y_pred, average="weighted")
 
-                df,
+        specif_arr.append(specificity)
 
-                pd.DataFrame(classification_report(y, y_pred, output_dict=True))
 
-                .transpose()
+        matthews_correlation = matthews_corrcoef(y,y_pred)
 
-                .drop("macro avg")
+        matthews_arr.append(matthews_correlation)
 
-                .reindex(["0", "1", "weighted avg", "accuracy"]),
 
-            ]
+        auc_score = roc_auc_score(y,y_pred, average="weighted")
 
-        )
+        auc_arr.append(auc_score)
 
-        # print(df)
 
         accuracy = accuracy_score(y, y_pred)
 
@@ -1464,17 +1471,20 @@ def model_rf(X, y, df,model,model_name,sampler=None):
 
     total_sampling_time = sampling_time_end - sampling_time_start
 
-
-    return acc_arr, f1_arr, pre_arr, rec_arr, model, (total_sampling_time / (cv * outer_iteration)),df
+    return (
+        acc_arr,
+        f1_arr,
+        pre_arr,
+        rec_arr,
+        model,
+        (total_sampling_time / (cv * outer_iteration)),
+        specif_arr,
+        matthews_arr,
+        auc_arr,
+    )
 
 
 def runOnDataset(file_name_without_extension: str, model, model_name, output_mode = "a"):
-
-    # reset class-level accumulators so each dataset's timing is isolated
-    TimedSMOTE.sampling_time = 0
-    TimedADASYN.sampling_time = 0
-    HybridGAN.sampling_time = 0
-    GANSampler.sampling_time = 0
 
     device = torch.device("cpu")
 
@@ -1617,8 +1627,11 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
         model_normal,
         _,
+        Normal_specificity,
 
-        results,
+        Normal_matthews,
+
+        Normal_auc,
 
     ) = model_rf(X, y, model=model,model_name=model_name,df=results)
 
@@ -1661,26 +1674,106 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
         Smote_recall,
         model_smote,
         smote_time,
-        results,
+        Smote_specificity,
+        Smote_matthews,
+        Smote_auc,
     ) = model_rf(X, y, results,model=model,model_name=model_name,sampler=TimedSMOTE())
 
     # SMOTified GAN via HybridGAN (SMOTE + f1_sg)
-    SG_accuracy, SG_f1_score, SG_precision, SG_recall, model_SG, sg_time, results = model_rf(
-        X, y, results,model=model,model_name=model_name, sampler=HybridGAN(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+    (
+        SG_accuracy,
+        SG_f1_score,
+        SG_precision,
+        SG_recall,
+        model_SG,
+        sg_time,
+        SG_specificity,
+        SG_matthews,
+        SG_auc,
+    ) = model_rf(
+        X,
+        y,
+        results,
+        model=model,
+        model_name=model_name,
+        sampler=HybridGAN(
+            base_sampler=SMOTE(),
+            epochs=epochs,
+            lr=lr,
+            batch_size=batch_size,
+            device=device,
+        ),
     )
 
     # Pure GAN via GANSampler (random noise + f1_g, count from SMOTE)
-    G_accuracy, G_f1_score, G_precision, G_recall, model_G, g_time, results = model_rf(
-        X, y, results,model=model,model_name=model_name,sampler=GANSampler(base_sampler=SMOTE(), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+    (
+        G_accuracy,
+        G_f1_score,
+        G_precision,
+        G_recall,
+        model_G,
+        g_time,
+        G_specificity,
+        G_matthews,
+        G_auc,
+    ) = model_rf(
+        X,
+        y,
+        results,
+        model=model,
+        model_name=model_name,
+        sampler=GANSampler(
+            base_sampler=SMOTE(),
+            epochs=epochs,
+            lr=lr,
+            batch_size=batch_size,
+            device=device,
+        ),
     )
 
     if file_name_without_extension != "drd":
-        ADA_accuracy, ADA_f1_score, ADA_precision, ADA_recall, model_ADA, ada_time, results = model_rf(
-            X, y, results,model=model,model_name=model_name,sampler=TimedADASYN(sampling_strategy=0.95)
+        (
+            ADA_accuracy,
+            ADA_f1_score,
+            ADA_precision,
+            ADA_recall,
+            model_ADA,
+            ada_time,
+            ADA_specificity,
+            ADA_matthews,
+            ADA_auc,
+        ) = model_rf(
+            X,
+            y,
+            results,
+            model=model,
+            model_name=model_name,
+            sampler=TimedADASYN(sampling_strategy=0.95),
         )
 
-        AG_accuracy, AG_f1_score, AG_precision, AG_recall, model_AG, ag_time, results = model_rf(
-            X, y, results,model=model,model_name=model_name,sampler=HybridGAN(base_sampler=ADASYN(sampling_strategy=0.95), epochs=epochs, lr=lr, batch_size=batch_size, device=device)
+        (
+            AG_accuracy,
+            AG_f1_score,
+            AG_precision,
+            AG_recall,
+            model_AG,
+            ag_time,
+            AG_specificity,
+            AG_matthews,
+            AG_auc,
+        ) = model_rf(
+            X,
+            y,
+            results,
+            model=model,
+            model_name=model_name,
+            sampler=HybridGAN(
+                base_sampler=TimedADASYN(sampling_strategy=0.95),
+                epochs=epochs,
+                lr=lr,
+                batch_size=batch_size,
+                device=device,
+            ),
         )
 
     if file_name_without_extension == "drd":
@@ -1698,6 +1791,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
                 "Normal_recall": Normal_recall,
 
+                "Normal_specificity": Normal_specificity,
+
+                "Normal_matthews": Normal_matthews,
+
+                "Normal_auc": Normal_auc,
+
                 "SMOTE_accuracy": Smote_accuracy,
 
                 "SMOTE_f1_score": Smote_f1_score,
@@ -1706,6 +1805,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
                 "SMOTE_recall": Smote_recall,
 
+                "SMOTE_specificity": Smote_specificity,
+
+                "SMOTE_matthews": Smote_matthews,
+
+                "SMOTE_auc": Smote_auc,
+
                 "SG_accuracy": SG_accuracy,
 
                 "SG_f1_score": SG_f1_score,
@@ -1713,6 +1818,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
                 "SG_precision": SG_precision,
 
                 "SG_recall": SG_recall,
+                
+                "SG_specificity": SG_specificity,
+
+                "SG_matthews": SG_matthews,
+
+                "SG_auc": SG_auc,
 
                 "G_accuracy": G_accuracy,
 
@@ -1721,6 +1832,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
                 "G_precision": G_precision,
 
                 "G_recall": G_recall,
+
+                "G_specificity": G_specificity,
+
+                "G_matthews": G_matthews,
+
+                "G_auc": G_auc,
 
                 "Smote_hell": sm_hell,
 
@@ -1753,6 +1870,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
                 "Normal_recall": Normal_recall,
 
+                "Normal_specificity": Normal_specificity,
+
+                "Normal_matthews": Normal_matthews,
+
+                "Normal_auc": Normal_auc,
+
                 "SMOTE_accuracy": Smote_accuracy,
 
                 "SMOTE_f1_score": Smote_f1_score,
@@ -1760,6 +1883,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
                 "SMOTE_precision": Smote_precision,
 
                 "SMOTE_recall": Smote_recall,
+
+                "SMOTE_specificity": Smote_specificity,
+
+                "SMOTE_matthews": Smote_matthews,
+
+                "SMOTE_auc": Smote_auc,
 
                 "ADASYN_accuracy": ADA_accuracy,
 
@@ -1769,6 +1898,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
                 "ADASYN_recall": ADA_recall,
 
+                "ADASYNC_specificity": ADA_specificity,
+
+                "ADASYNC_matthews": ADA_matthews,
+
+                "ADASYNC_auc": ADA_auc,
+
                 "SG_accuracy": SG_accuracy,
 
                 "SG_f1_score": SG_f1_score,
@@ -1777,13 +1912,25 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
                 "SG_recall": SG_recall,
 
+                "SG_specificity": SG_specificity,
+
+                "SG_matthews": SG_matthews,
+
+                "SG_auc": SG_auc,
+
                 "AG_accuracy": AG_accuracy,
 
                 "AG_f1_score": AG_f1_score,
 
                 "AG_precision": AG_precision,
 
-                "AG_recall": AG_recall,
+                "AG_recall": AG_recall, 
+                
+                "AG_specificity": AG_specificity,
+
+                "AG_matthews": AG_matthews,
+
+                "AG_auc": AG_auc,
 
                 "G_accuracy": G_accuracy,
 
@@ -1792,6 +1939,12 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
                 "G_precision": G_precision,
 
                 "G_recall": G_recall,
+
+                "G_specificity": G_specificity,
+
+                "G_matthews": G_matthews,
+
+                "G_auc": G_auc,
 
                 "Smote_hell": sm_hell,
 
@@ -1855,8 +2008,7 @@ def main():
     files = [
 
         # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
-        "bcwd"
-
+        "csc"
     ]
 
     for f in files:
