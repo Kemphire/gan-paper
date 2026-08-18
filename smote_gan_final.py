@@ -1210,7 +1210,7 @@ class HybridGAN(BaseEstimator):
         # 3. Synthetic tail produced by base_sampler -> used as GAN latent input
         n_original = X_df.shape[0]
         X_tail = X_over.iloc[n_original:].to_numpy() if isinstance(X_over, pd.DataFrame) else X_over[n_original:]
-        if X_tail.shape[0] == 0:
+        if X_tail.shape[0] < 2:
             return X_over, y_over
 
         X_tail_t = to_device(torch.from_numpy(X_tail).float(), device)
@@ -1394,8 +1394,8 @@ def model_rf(X, y, df,model,model_name,sampler=None):
 
     sampling_time_start = type(sampler).sampling_time if sampler else 0
 
-    cv = 2
-    outer_iteration = 1
+    cv = 5
+    outer_iteration = 30
 
     for i in range(outer_iteration):
 
@@ -1983,41 +1983,43 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
 def main():
 
-    # cwd = Path.cwd()
+    cwd = Path.cwd()
 
-    #
+    
 
-    # datasets = cwd / "Datasets"
+    datasets = cwd / "Datasets"
 
-    #
+    
 
-    # files = data.glob("*.csv")
+    files = datasets.glob("*.csv")
 
-    #
+    
 
-    # sorted_files = sorted(files, key=lambda f: f.stat().st_size)
+    sorted_files = sorted(files, key=lambda f: f.stat().st_size)
 
-    #
+    
 
-    #
+    
 
-    # for file in sorted_files:
+    for file in sorted_files:
 
-    #     runOnDataset(file.stem)
+        runOnDataset(file.stem, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
+        runOnDataset(file.stem, model=SVC(),model_name="simple_vector_classifier")
+        runOnDataset(file.stem, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
-    files = [
+    # files = [
 
-        # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
-        "csc"
-    ]
+    #     # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
+    #     "csc"
+    # ]
 
-    for f in files:
+    # for f in files:
 
-        #sys.stdout.write(f"\n\nOperating on {file}\n\n")
+    #     #sys.stdout.write(f"\n\nOperating on {file}\n\n")
 
-        runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
-        runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
-        runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
+    #     runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
+    #     runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
+    #     runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
 
 if __name__ == "__main__":
