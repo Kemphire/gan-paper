@@ -1,3 +1,4 @@
+from sklearn.model_selection import StratifiedKFold
 from pathlib import Path
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
@@ -1394,17 +1395,23 @@ def model_rf(X, y, df,model,model_name,sampler=None):
 
     sampling_time_start = type(sampler).sampling_time if sampler else 0
 
-    cv = 5
+
     outer_iteration = 30
+    n_splits = 5
 
     for i in range(outer_iteration):
+        cv_splitter = StratifiedKFold(
+            n_splits=n_splits,
+            shuffle=True,
+            random_state=42 + i
+        )
 
         if sampler:
             pipeline = Pipeline([("sampler",sampler),("clf",model)])
         else:
             pipeline = Pipeline([("clf",model)])
 
-        y_pred = cross_val_predict(pipeline, X, y, cv=cv)
+        y_pred = cross_val_predict(pipeline, X, y, cv=cv_splitter)
         """
 
       results = cross_validate(estimator=model,
@@ -1477,7 +1484,7 @@ def model_rf(X, y, df,model,model_name,sampler=None):
         pre_arr,
         rec_arr,
         model,
-        (total_sampling_time / (cv * outer_iteration)),
+        (total_sampling_time / (n_splits * outer_iteration)),
         specif_arr,
         matthews_arr,
         auc_arr,
