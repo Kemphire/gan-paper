@@ -1738,7 +1738,7 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
         ),
     )
 
-    if file_name_without_extension != "drd":
+    if file_name_without_extension not in ["drd","csc"]:
         (
             ADA_accuracy,
             ADA_f1_score,
@@ -1783,7 +1783,7 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
             ),
         )
 
-    if file_name_without_extension == "drd":
+    if file_name_without_extension in ["drd","csc"]:
 
         output_df = pd.DataFrame(
 

@@ -38,13 +38,15 @@ def generate_report(
 def main():
     pwd = Path.cwd()
 
-    output_path = pwd / "Summaries"
+    output_path = pwd / "Summaries-2"
     output_path.mkdir(exist_ok=True)
 
-    results_path = pwd / "NewResults"
+    results_path = Path.home() / "remote"
 
     results = [
-        (pd.read_csv(f), f.stem.split("_")[0].title()) for f in results_path.iterdir()
+        (pd.read_csv(f), f.stem.split("_")[0].title())
+        for f in results_path.iterdir()
+        if f.suffix != ".txt"
     ]
 
     generate_report(results, regex=r"model_name|_accuracy$").to_csv(
