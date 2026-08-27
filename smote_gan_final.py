@@ -1396,8 +1396,8 @@ def model_rf(X, y, df,model,model_name,sampler=None):
     sampling_time_start = type(sampler).sampling_time if sampler else 0
 
 
-    outer_iteration = 30
-    n_splits = 5
+    outer_iteration = 5
+    n_splits = 2
 
     for i in range(outer_iteration):
         cv_splitter = StratifiedKFold(
@@ -1990,43 +1990,43 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
 def main():
 
-    cwd = Path.cwd()
+    # cwd = Path.cwd()
 
     
 
-    datasets = cwd / "Datasets"
+    # datasets = cwd / "Datasets"
 
     
 
-    files = datasets.glob("*.csv")
+    # files = datasets.glob("*.csv")
 
     
 
-    sorted_files = sorted(files, key=lambda f: f.stat().st_size)
+    # sorted_files = sorted(files, key=lambda f: f.stat().st_size)
 
     
 
     
 
-    for file in sorted_files:
+    # for file in sorted_files:
 
-        runOnDataset(file.stem, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
-        runOnDataset(file.stem, model=SVC(),model_name="simple_vector_classifier")
-        runOnDataset(file.stem, model=LogisticRegression(),model_name="logistic_regression_classifier")
+    #     runOnDataset(file.stem, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
+    #     runOnDataset(file.stem, model=SVC(),model_name="simple_vector_classifier")
+    #     runOnDataset(file.stem, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
-    # files = [
+    files = [
 
-    #     # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
-    #     "csc"
-    # ]
+        # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
+        "falling"
+    ]
 
-    # for f in files:
+    for f in files:
 
-    #     #sys.stdout.write(f"\n\nOperating on {file}\n\n")
+        #sys.stdout.write(f"\n\nOperating on {file}\n\n")
 
-    #     runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
-    #     runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
-    #     runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
+        runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
+        runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
+        runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
 
 if __name__ == "__main__":
