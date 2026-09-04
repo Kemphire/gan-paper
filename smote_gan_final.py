@@ -919,7 +919,7 @@ def f1_sg(
 
     ##### Loading our Tensor Dataset into a Dataloader. #####
 
-    train_dl = DataLoader(my_dataset, batch_size=batch_size, shuffle=True)
+    train_dl = DataLoader(my_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
     train_dl = DeviceDataLoader(train_dl, device)
 
@@ -1025,7 +1025,7 @@ def f1_g(
 
     ##### Loading our Tensor Dataset into a Dataloader. #####
 
-    train_dl = DataLoader(my_dataset, batch_size=batch_size, shuffle=True)
+    train_dl = DataLoader(my_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 
     train_dl = DeviceDataLoader(train_dl, device)
 
@@ -2017,7 +2017,7 @@ def main():
     files = [
 
         # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
-        "falling"
+        "sitting_on_the_ground"
     ]
 
     for f in files:
@@ -2025,8 +2025,8 @@ def main():
         #sys.stdout.write(f"\n\nOperating on {file}\n\n")
 
         runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
-        runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
-        runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
+        # runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
+        # runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
 
 if __name__ == "__main__":
