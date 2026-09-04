@@ -1,6 +1,7 @@
 from typing import Tuple
 from pathlib import Path
 import pandas as pd
+from openpyxl.styles import Font
 
 
 def get_result_summary(df: pd.DataFrame, regex: str) -> pd.DataFrame:
@@ -12,6 +13,7 @@ def get_result_summary(df: pd.DataFrame, regex: str) -> pd.DataFrame:
         .stack(level=1, future_stack=True)
         .reset_index()
         .rename(columns={"level_1": "Stats"})
+        .round(4)
     )
 
     summary.loc[summary["model_name"].duplicated(), "model_name"] = ""
@@ -41,41 +43,41 @@ def main():
     output_path = pwd / "Summaries-2"
     output_path.mkdir(exist_ok=True)
 
-    results_path = Path.home() / "remote"
+    results_path = pwd / "CollectedResults"
 
     results = [
-        (pd.read_csv(f), f.stem.split("_")[0].title())
+        (pd.read_csv(f), f.stem.title())
         for f in results_path.iterdir()
         if f.suffix != ".txt"
     ]
 
-    generate_report(results, regex=r"model_name|_accuracy$").to_csv(
-        output_path / "accuracy.csv",
-    )
+    accuracy = generate_report(results, regex=r"model_name|_accuracy$")
+    f1_score = generate_report(results, regex=r"model_name|_f1_score$")
+    precision = generate_report(results, regex=r"model_name|_precision$")
+    recall = generate_report(results, regex=r"model_name|_recall$")
+    specificity = generate_report(results, regex=r"model_name|_specificity$")
+    matthews = generate_report(results, regex=r"model_name|_matthews$")
+    auc = generate_report(results, regex=r"model_name|_auc$")
 
-    generate_report(results, regex=r"model_name|_f1_score$").to_csv(
-        output_path / "f1_score.csv",
-    )
+    with pd.ExcelWriter(output_path / "merged.xlsx", engine="openpyxl") as wrt:
+        for df, sheet_name in zip(
+            [accuracy, f1_score, precision, recall, specificity, matthews, auc],
+            [
+                "accuracy",
+                "f1_score",
+                "precision",
+                "recall",
+                "specificity",
+                "matthews",
+                "auc",
+            ],
+        ):
+            df.to_excel(wrt, sheet_name=sheet_name, index=False, header=True)
 
-    generate_report(results, regex=r"model_name|_precision$").to_csv(
-        output_path / "precision.csv",
-    )
-
-    generate_report(results, regex=r"model_name|_recall$").to_csv(
-        output_path / "recall.csv",
-    )
-
-    generate_report(results, regex=r"model_name|_specificity$").to_csv(
-        output_path / "specificity.csv",
-    )
-
-    generate_report(results, regex=r"model_name|_matthews$").to_csv(
-        output_path / "matthews.csv",
-    )
-
-    generate_report(results, regex=r"model_name|_auc$").to_csv(
-        output_path / "auc.csv",
-    )
+        for ws in wrt.book.worksheets:
+            for row in ws.iter_rows():
+                for cell in row:
+                    cell.font = Font(name="Times New Roman", size=10)
 
 
 if __name__ == "__main__":
