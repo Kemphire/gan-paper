@@ -1,7 +1,7 @@
-from sklearn.model_selection import StratifiedKFold
-from pathlib import Path
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.model_selection import StratifiedKFold
+from pathlib import Path
 import pandas as pd
 from pandas import DataFrame
 import numpy as np
@@ -10,7 +10,6 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm.auto import tqdm
-from datetime import datetime
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split, cross_val_predict
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
@@ -52,81 +51,7 @@ def two_classes_Abalone(Abalone_df):
     return Abalone_df
 
 
-def four_classes_Abalone(Abalone_df):
 
-    class_category = np.repeat("empty000", Abalone_df.shape[0])
-
-    for i in range(0, Abalone_df["Class_number_of_rings"].size):
-
-        if Abalone_df["Class_number_of_rings"][i] <= 7:
-
-            class_category[i] = int(0)
-
-        elif (
-
-            Abalone_df["Class_number_of_rings"][i] > 7
-
-            and Abalone_df["Class_number_of_rings"][i] <= 10
-
-        ):
-
-            class_category[i] = int(1)
-
-        elif (
-
-            Abalone_df["Class_number_of_rings"][i] > 10
-
-            and Abalone_df["Class_number_of_rings"][i] <= 15
-
-        ):
-
-            class_category[i] = int(2)
-
-        else:
-
-            class_category[i] = int(3)
-
-
-    Abalone_df = Abalone_df.drop(["Class_number_of_rings"], axis=1)
-
-    Abalone_df["Class"] = class_category
-
-    return Abalone_df
-
-
-def get_features(Abalone_df, Sex_onehotencoded, test_size):
-
-    features = Abalone_df.iloc[:, np.r_[0:7]]
-
-    X_train, X_test, X_gender, X_gender_test = train_test_split(
-
-        features, Sex_onehotencoded, random_state=10, test_size=test_size
-
-    )
-
-    X_train = np.concatenate((X_train.values, X_gender), axis=1)
-
-    X_test = np.concatenate((X_test.values, X_gender_test), axis=1)
-
-    return X_train, X_test
-
-
-def get_labels(Abalone_df, test_size):
-
-    labels = Abalone_df.iloc[:, 7]
-
-    y_train, y_test = train_test_split(labels, random_state=10, test_size=test_size)
-
-    train_list = [int(i) for i in y_train.ravel()]
-
-    y_train = np.array(train_list)
-
-    test_list = [int(i) for i in y_test.ravel()]  # Flattening the matrix
-
-    y_test = np.array(test_list)
-
-
-    return y_train, y_test
 
 
 def GANs_two_class_real_data(
@@ -156,58 +81,6 @@ def GANs_two_class_real_data(
     return X_real, y_real
 
 
-def GANs_four_class_real_data(X_train, y_train):
-
-    X_real_0 = []
-
-    X_real_2 = []
-
-    X_real_3 = []
-
-    for i in range(len(y_train)):
-
-        if int(y_train[i]) == 0:
-
-            X_real_0.append(X_train[i])
-
-        if int(y_train[i]) == 2:
-
-            X_real_2.append(X_train[i])
-
-        if int(y_train[i]) == 3:
-
-            X_real_3.append(X_train[i])
-
-    X_real_0 = np.array(X_real_0)
-
-    X_real_2 = np.array(X_real_2)
-
-    X_real_3 = np.array(X_real_3)
-
-
-    y_real_0 = np.full((X_real_0.shape[0],), 0)
-
-    y_real_2 = np.full((X_real_2.shape[0],), 2)
-
-    y_real_3 = np.full((X_real_3.shape[0],), 3)
-
-
-    return X_real_0, X_real_2, X_real_3, y_real_0, y_real_2, y_real_3
-
-
-######### GETTING THE GPU ###########
-
-def get_default_device():
-
-    """Pick GPU if available, else CPU"""
-
-    if torch.cuda.is_available():
-
-        return torch.device("cuda")
-
-    else:
-
-        return torch.device("cpu")
 
 
 def to_device(data, device):
@@ -888,33 +761,8 @@ def f1_sg(
 
 ):  # Fetches us the trained generators
 
-    # X_oversampled = X_train_SMOTE[(X_train.shape[0]):]
-
-    # X_oversampled = torch.from_numpy(X_oversampled)
-
-    # X_oversampled = to_device(X_oversampled.float(), device)
-
-
-    # print(X_oversampled.shape)
-
-
-    # X_real, y_real = GANs_two_class_real_data(X_train, y_train)
-
-
-    ##### Wrapping all the tensors in a Tensor Dataset. #####
-
-    # tensor_x = torch.Tensor(X_real)
-
-    # tensor_y = torch.Tensor(y_real)
 
     my_dataset = TensorDataset(torch.Tensor(X_real), torch.Tensor(y_real))
-
-
-    # lr = 0.0002
-
-    # epochs = 150
-
-    # batch_size = 128
 
 
     ##### Loading our Tensor Dataset into a Dataloader. #####
@@ -994,34 +842,8 @@ def f1_g(
 
 ):  # Fetches us the trained generators
 
-    # X_oversampled = X_train_SMOTE[(X_train.shape[0]):]
-
-    # X_oversampled = torch.from_numpy(X_oversampled)
-
-    # X_oversampled = to_device(X_oversampled.float(), device)
-
-
-    # print(X_oversampled.shape)
-
-
-    # X_real, y_real = GANs_two_class_real_data(X_train, y_train)
-
-
-    ##### Wrapping all the tensors in a Tensor Dataset. #####
-
-    # tensor_x = torch.Tensor(X_real)
-
-    # tensor_y = torch.Tensor(y_real)
 
     my_dataset = TensorDataset(torch.Tensor(X_real), torch.Tensor(y_real))
-
-
-    # lr = 0.0002
-
-    # epochs = 150
-
-    # batch_size = 128
-
 
     ##### Loading our Tensor Dataset into a Dataloader. #####
 
@@ -1311,70 +1133,6 @@ class GANSampler(BaseEstimator):
 
 
 
-"""
-
-def model_rf(X_train, y_train, X_test, y_test):
-
-    model = RandomForestClassifier()
-
-    model.fit(X_train, y_train)
-
-    y_pred = model.predict(X_test)
-
-    accuracy = accuracy_score(y_test, y_pred)
-
-    f1_mes = f1_score(y_test, y_pred, average='weighted')
-
-    precision = precision_score(y_test, y_pred, average='weighted')
-
-    recall = recall_score(y_test, y_pred, average='weighted')
-
-    return accuracy, f1_mes, precision, recall, model
-
-"""
-
-
-def hellinger(p, q):
-
-    return np.sqrt(0.5 * ((np.sqrt(p) - np.sqrt(q)) ** 2).sum())
-
-
-def hellingerDistance(train, generated):
-
-    df1 = pd.DataFrame(train)
-
-    df2 = pd.DataFrame(generated)
-
-    df2.columns = df1.columns
-
-
-    common = pd.merge(df1, df2, how="inner")
-
-
-    df2 = pd.concat([df2, common]).drop_duplicates(keep=False)
-
-
-    df1 = df1.div(df1.sum(), axis=1)
-
-    df2 = df2.div(df2.sum(), axis=1)
-
-
-    # print((df2.head()))
-
-    hellinger_distances = {}
-
-    for col in df1.columns:
-
-        dist = hellinger(df1[col], df2[col])
-
-        hellinger_distances[col] = dist
-
-
-    # print(hellinger_distances)
-
-    average_distance = np.mean(list(hellinger_distances.values()))
-
-    return average_distance
 
 
 def model_rf(X, y, df,model,model_name,sampler=None):
@@ -1412,33 +1170,6 @@ def model_rf(X, y, df,model,model_name,sampler=None):
             pipeline = Pipeline([("clf",model)])
 
         y_pred = cross_val_predict(pipeline, X, y, cv=cv_splitter)
-        """
-
-      results = cross_validate(estimator=model,
-
-                                          X=X,
-
-                                          y=y,
-
-                                          cv=5,
-
-                                          scoring=scoring)
-
-      print(results)
-
-      accuracy = results['test_accuracy']
-
-      f1_mes = results['test_f1_score']
-
-      precision = results['test_precision']
-
-      recall = results['test_recall']
-
-      return accuracy, f1_mes, precision, recall, model
-
-      """
-
-
 
         specificity = specificity_score(y,y_pred, average="weighted")
 
@@ -1506,8 +1237,6 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
     label_encoder = LabelEncoder()
 
-    # onehot_encoder = OneHotEncoder(sparse=False)
-
     onehot_encoder = OneHotEncoder(sparse_output=False)
 
 
@@ -1525,8 +1254,6 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
 
         df["Sex"] = Sex_onehotencoded
-
-        # print(df)
 
         X = df.drop(["Class"], axis=1)
 
@@ -1548,9 +1275,6 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
         df["SEQUENCE_NAME"] = Seq_onehotencoded
 
-        # rename site column as Class
-
-        # replace positive by 1 and negative by 0
 
         X = df.drop(["Class"], axis=1)
 
@@ -1574,11 +1298,6 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
         ]  # in case of float class e.g. (0.0,1.0)
 
         y = df["Class"]
-
-    # print(y)
-
-
-    # X_train, X_test, y_train, y_test = train_test_split(df.drop(['Class'], axis=1), df['Class'], test_size=0.2, random_state=10)
 
 
     #### Calculating train and test accuracy and f1 score of non oversampled training data ####
@@ -1650,9 +1369,6 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
     print("Normal_recall: ", Normal_recall)
 
-    # results.loc[len(results)] = [0]*4
-
-    # print(classification_report(y_test, model_normal.predict(X_test)))
 
 
     print("Before OverSampling, counts of label '0': {}".format(sum(y == 0)))
@@ -1666,10 +1382,7 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
     epochs = 150
     batch_size = 128
 
-    # All oversampling now happens inside model_rf via Pipeline (no manual fit_resample here)
-    # X, y are unadulterated original data
 
-    # placeholder hellinger / timing values
     sm_hell = g_hell = sg_hell = ad_hell = ag_hell = 0.0
     smote_time = g_time = sg_time = ada_time = ag_time = 0.0
 
@@ -1990,43 +1703,17 @@ def runOnDataset(file_name_without_extension: str, model, model_name, output_mod
 
 def main():
 
-    # cwd = Path.cwd()
+    cwd = Path.cwd()
+    datasets = cwd / "Datasets"
+    files = datasets.glob("*.csv")
 
-    
+    sorted_files = sorted(files, key=lambda f: f.stat().st_size)
 
-    # datasets = cwd / "Datasets"
+    for file in sorted_files:
 
-    
-
-    # files = datasets.glob("*.csv")
-
-    
-
-    # sorted_files = sorted(files, key=lambda f: f.stat().st_size)
-
-    
-
-    
-
-    # for file in sorted_files:
-
-    #     runOnDataset(file.stem, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
-    #     runOnDataset(file.stem, model=SVC(),model_name="simple_vector_classifier")
-    #     runOnDataset(file.stem, model=LogisticRegression(),model_name="logistic_regression_classifier")
-
-    files = [
-
-        # "drd","drp","dtcr","fhs","ggcm","pid","tsd"
-        "sitting_on_the_ground"
-    ]
-
-    for f in files:
-
-        #sys.stdout.write(f"\n\nOperating on {file}\n\n")
-
-        runOnDataset(f, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
-        # runOnDataset(f, model=SVC(),model_name="simple_vector_classifier")
-        # runOnDataset(f, model=LogisticRegression(),model_name="logistic_regression_classifier")
+        runOnDataset(file.stem, model=RandomForestClassifier(),model_name="random_forest_classifier", output_mode="w")
+        runOnDataset(file.stem, model=SVC(),model_name="simple_vector_classifier")
+        runOnDataset(file.stem, model=LogisticRegression(),model_name="logistic_regression_classifier")
 
 
 if __name__ == "__main__":
